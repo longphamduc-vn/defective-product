@@ -3,59 +3,41 @@ import numpy as np
 from tkinter import *
 from PIL import Image, ImageTk
 
-# Thiết lập ngưỡng phát hiện chuyển động
-MOTION_THRESHOLD = 5000  # Giá trị này có thể điều chỉnh tùy vào mức độ nhạy cảm bạn mong muốn
+# Biến lưu trữ ảnh mẫu
+reference_image = None
 
-# Hàm cập nhật khung hình từ camera
+# Hàm để lưu ảnh mẫu từ camera
+def capture_reference_image():
+    global reference_image
+    _, frame = cap.read()
+    reference_image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    print("Đã chụp ảnh mẫu")
+
+# Hàm cập nhật khung hình từ camera và so sánh với ảnh mẫu
 def update_frame():
-    global prev_frame
-    
     # Đọc khung hình từ camera
     _, frame = cap.read()
-    # Chuyển khung hình thành dạng xám để xử lý
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     
-    # Nếu đã có khung hình trước đó, tính toán sự khác biệt
-    if prev_frame is not None:
-        # Tính toán sự khác biệt giữa khung hiện tại và khung trước đó
-        frame_diff = cv2.absdiff(prev_frame, gray)
-        # Ngưỡng hóa hình ảnh để nổi bật sự thay đổi
-        _, diff_threshold = cv2.threshold(frame_diff, 25, 255, cv2.THRESH_BINARY)
+    if reference_image is not None:
+        # Tính sự khác biệt giữa khung hình hiện tại và ảnh mẫu
+        diff = cv2.absdiff(reference_image, gray_frame)
         
-        # Tính toán tổng số pixel thay đổi
-        motion_score = np.sum(diff_threshold) / 255
+        # Ngưỡng hóa sự khác biệt để làm nổi bật các vùng khác nhau
+        _, diff_threshold = cv2.threshold(diff, 30, 255, cv2.THRESH_BINARY)
         
-        # Hiển thị tốc độ chuyển động ra console
-        print(f"Tốc độ chuyển động: {motion_score}")
+        # Tìm các đường viền của các vùng khác biệt
+        contours, _ = cv2.findContours(diff_threshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
-        # Kiểm tra nếu chuyển động chậm (motion_score thấp)
-        if motion_score < MOTION_THRESHOLD:
-            # Nhận diện tất cả các màu trừ màu trắng
-            # Chuyển đổi sang không gian màu HSV
-            hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-            
-            # Thiết lập ngưỡng màu cho tất cả các màu khác trừ màu trắng
-            lower_color = np.array([0, 0, 0])         # Màu tối nhất
-            upper_color = np.array([180, 255, 200])   # Giới hạn để tránh màu trắng
-            
-            # Tạo mặt nạ chỉ giữ lại các vùng không phải màu trắng
-            color_mask = cv2.inRange(hsv_frame, lower_color, upper_color)
-            
-            # Tìm các đường viền của các vùng có màu khác màu trắng
-            contours, _ = cv2.findContours(color_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            
-            # Vẽ các đường viền và hiển thị kích thước của mỗi vùng màu
-            for contour in contours:
-                area = cv2.contourArea(contour)
-                if area > 50:  # Lọc các vùng có diện tích nhỏ
-                    x, y, w, h = cv2.boundingRect(contour)
-                    cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 2)
-                    cv2.putText(frame, f"Size: {int(area)}", (x, y - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+        # Vẽ các đường viền của các vùng khác biệt trên khung hình gốc
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            if area > 50:  # Lọc các vùng nhỏ để chỉ hiển thị khác biệt lớn
+                x, y, w, h = cv2.boundingRect(contour)
+                cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 2)
+                cv2.putText(frame, f"Diff: {int(area)}", (x, y - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
     
-    # Cập nhật khung hình hiện tại làm khung hình trước cho lần tiếp theo
-    prev_frame = gray
-
     # Chuyển khung hình thành định dạng mà Tkinter có thể hiển thị
     img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
     imgtk = ImageTk.PhotoImage(image=img)
@@ -67,15 +49,18 @@ def update_frame():
 
 # Tạo cửa sổ Tkinter
 root = Tk()
-root.title("Nhận diện tất cả các màu trừ màu trắng")
+root.title("Nhận diện sự khác biệt so với ảnh mẫu")
 
 # Khởi tạo camera
 cap = cv2.VideoCapture(0)  # 0 là chỉ số của camera mặc định
-prev_frame = None  # Biến lưu trữ khung hình trước
 
 # Tạo widget để hiển thị khung hình từ camera
 camera_label = Label(root)
 camera_label.pack()
+
+# Nút để chụp ảnh mẫu
+capture_button = Button(root, text="Chụp ảnh mẫu", command=capture_reference_image)
+capture_button.pack()
 
 # Bắt đầu cập nhật khung hình
 update_frame()
