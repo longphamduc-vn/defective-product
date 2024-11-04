@@ -3,33 +3,50 @@ import numpy as np
 from tkinter import *
 from PIL import Image, ImageTk
 
+# Thiết lập ngưỡng phát hiện chuyển động
+MOTION_THRESHOLD = 5000  # Giá trị này có thể điều chỉnh tùy vào mức độ nhạy cảm bạn mong muốn
+
 # Hàm cập nhật khung hình từ camera
 def update_frame():
+    global prev_frame
+    
     # Đọc khung hình từ camera
     _, frame = cap.read()
-    
     # Chuyển khung hình thành dạng xám để xử lý
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     
-    # Làm mờ hình ảnh để giảm nhiễu
-    blurred = cv2.GaussianBlur(gray, (7, 7), 0)  # Giảm kích thước kernel để xử lý các vết nhỏ
-    
-    # Áp dụng ngưỡng để phát hiện các vùng khác biệt (vết bẩn)
-    _, threshold = cv2.threshold(blurred, 220, 255, cv2.THRESH_BINARY_INV)  # Giảm ngưỡng để nhạy hơn với các vết mờ nhạt
-    
-    # Tìm các đường viền của các vùng khác biệt
-    contours, _ = cv2.findContours(threshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
-    # Vẽ các đường viền và hiển thị kích thước vết bẩn
-    for contour in contours:
-        area = cv2.contourArea(contour)
-        if area > 50:  # Giảm diện tích tối thiểu để phát hiện vết bẩn nhỏ hơn
-            x, y, w, h = cv2.boundingRect(contour)
-            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 2)
+    # Nếu đã có khung hình trước đó, tính toán sự khác biệt
+    if prev_frame is not None:
+        # Tính toán sự khác biệt giữa khung hiện tại và khung trước đó
+        frame_diff = cv2.absdiff(prev_frame, gray)
+        # Ngưỡng hóa hình ảnh để nổi bật sự thay đổi
+        _, diff_threshold = cv2.threshold(frame_diff, 25, 255, cv2.THRESH_BINARY)
+        
+        # Tính toán tổng số pixel thay đổi
+        motion_score = np.sum(diff_threshold) / 255
+        
+        # Kiểm tra nếu chuyển động chậm (motion_score thấp)
+        if motion_score < MOTION_THRESHOLD:
+            # Làm mờ hình ảnh để giảm nhiễu
+            blurred = cv2.GaussianBlur(gray, (7, 7), 0)
             
-            # Hiển thị diện tích vết bẩn ngay trên hình ảnh
-            cv2.putText(frame, f"Size: {int(area)}", (x, y - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+            # Áp dụng ngưỡng để phát hiện các vùng khác biệt (vết bẩn)
+            _, threshold = cv2.threshold(blurred, 220, 255, cv2.THRESH_BINARY_INV)
+            
+            # Tìm các đường viền của các vùng khác biệt
+            contours, _ = cv2.findContours(threshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            
+            # Vẽ các đường viền và hiển thị kích thước vết bẩn
+            for contour in contours:
+                area = cv2.contourArea(contour)
+                if area > 50:  # Điều kiện phát hiện vết bẩn nhỏ hơn
+                    x, y, w, h = cv2.boundingRect(contour)
+                    cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 2)
+                    cv2.putText(frame, f"Size: {int(area)}", (x, y - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+    
+    # Cập nhật khung hình hiện tại làm khung hình trước cho lần tiếp theo
+    prev_frame = gray
 
     # Chuyển khung hình thành định dạng mà Tkinter có thể hiển thị
     img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
@@ -42,10 +59,11 @@ def update_frame():
 
 # Tạo cửa sổ Tkinter
 root = Tk()
-root.title("Kiểm tra vết bẩn nhỏ trong giấy trắng")
+root.title("Kiểm tra vết bẩn khi chuyển động chậm")
 
 # Khởi tạo camera
 cap = cv2.VideoCapture(0)  # 0 là chỉ số của camera mặc định
+prev_frame = None  # Biến lưu trữ khung hình trước
 
 # Tạo widget để hiển thị khung hình từ camera
 camera_label = Label(root)
