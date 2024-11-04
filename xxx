@@ -25,6 +25,9 @@ def update_frame():
         # Tính toán tổng số pixel thay đổi
         motion_score = np.sum(diff_threshold) / 255
         
+        # Hiển thị tốc độ chuyển động ra console
+        print(f"Tốc độ chuyển động: {motion_score}")
+        
         # Kiểm tra nếu chuyển động chậm (motion_score thấp)
         if motion_score < MOTION_THRESHOLD:
             # Làm mờ hình ảnh để giảm nhiễu
