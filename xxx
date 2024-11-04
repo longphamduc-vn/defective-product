@@ -20,12 +20,17 @@ def update_frame():
     # Tìm các đường viền của các vùng khác biệt
     contours, _ = cv2.findContours(threshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
-    # Vẽ các đường viền (nếu có) trên khung hình ban đầu
+    # Vẽ các đường viền và hiển thị kích thước vết bẩn
     for contour in contours:
-        if cv2.contourArea(contour) > 50:  # Giảm diện tích tối thiểu để phát hiện vết bẩn nhỏ hơn
+        area = cv2.contourArea(contour)
+        if area > 50:  # Giảm diện tích tối thiểu để phát hiện vết bẩn nhỏ hơn
             x, y, w, h = cv2.boundingRect(contour)
             cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 2)
-    
+            
+            # Hiển thị diện tích vết bẩn ngay trên hình ảnh
+            cv2.putText(frame, f"Size: {int(area)}", (x, y - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+
     # Chuyển khung hình thành định dạng mà Tkinter có thể hiển thị
     img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
     imgtk = ImageTk.PhotoImage(image=img)
