@@ -30,19 +30,25 @@ def update_frame():
         
         # Kiểm tra nếu chuyển động chậm (motion_score thấp)
         if motion_score < MOTION_THRESHOLD:
-            # Làm mờ hình ảnh để giảm nhiễu
-            blurred = cv2.GaussianBlur(gray, (7, 7), 0)
+            # Nhận diện vết mực
+            # Chuyển đổi sang không gian màu HSV để dễ phát hiện vết mực
+            hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
             
-            # Áp dụng ngưỡng để phát hiện các vùng khác biệt (vết bẩn)
-            _, threshold = cv2.threshold(blurred, 220, 255, cv2.THRESH_BINARY_INV)
+            # Thiết lập ngưỡng màu cho vết mực (tùy vào màu vết mực)
+            # Ví dụ, để phát hiện các vết mực đen hoặc tối:
+            lower_ink = np.array([0, 0, 0])       # Màu tối nhất
+            upper_ink = np.array([180, 255, 50])  # Giới hạn màu tối nhẹ
             
-            # Tìm các đường viền của các vùng khác biệt
-            contours, _ = cv2.findContours(threshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # Tạo mặt nạ chỉ giữ lại các vùng có màu nằm trong khoảng màu vết mực
+            ink_mask = cv2.inRange(hsv_frame, lower_ink, upper_ink)
             
-            # Vẽ các đường viền và hiển thị kích thước vết bẩn
+            # Tìm các đường viền của các vùng vết mực
+            contours, _ = cv2.findContours(ink_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            
+            # Vẽ các đường viền và hiển thị kích thước của mỗi vết mực
             for contour in contours:
                 area = cv2.contourArea(contour)
-                if area > 50:  # Điều kiện phát hiện vết bẩn nhỏ hơn
+                if area > 50:  # Lọc các vết mực có diện tích nhỏ
                     x, y, w, h = cv2.boundingRect(contour)
                     cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 2)
                     cv2.putText(frame, f"Size: {int(area)}", (x, y - 10),
@@ -62,7 +68,7 @@ def update_frame():
 
 # Tạo cửa sổ Tkinter
 root = Tk()
-root.title("Kiểm tra vết bẩn khi chuyển động chậm")
+root.title("Nhận diện vết mực trên giấy")
 
 # Khởi tạo camera
 cap = cv2.VideoCapture(0)  # 0 là chỉ số của camera mặc định
