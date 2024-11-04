@@ -1,43 +1,55 @@
 import cv2
-import tensorflow as tf
-import numpy as np
+import mediapipe as mp
+import tkinter as tk
+from tkinter import Label
+from PIL import Image, ImageTk
 
-# Load mô hình đã được huấn luyện (ví dụ, mô hình MobileNet được huấn luyện trên ImageNet)
-model = tf.keras.applications.MobileNetV2(weights='imagenet')
+# Khởi tạo Mediapipe
+mp_drawing = mp.solutions.drawing_utils
+mp_objectron = mp.solutions.objectron
 
-# Hàm để xử lý và dự đoán sản phẩm
-def process_and_predict(image):
-    # Resize hình ảnh để phù hợp với đầu vào của mô hình
-    img = cv2.resize(image, (224, 224))
-    img = np.expand_dims(img, axis=0)
-    img = tf.keras.applications.mobilenet_v2.preprocess_input(img)
-    
-    # Dự đoán lớp sản phẩm
-    predictions = model.predict(img)
-    decoded_predictions = tf.keras.applications.mobilenet_v2.decode_predictions(predictions, top=1)
-    return decoded_predictions[0][0][1]  # Trả về tên của sản phẩm
+# Khởi tạo cửa sổ Tkinter
+root = tk.Tk()
+root.title("Stain Detection on White Paper with Mediapipe")
 
-# Khởi động camera
+# Khởi tạo nhãn để hiển thị video
+lbl_video = Label(root)
+lbl_video.pack()
+
+# Hàm để cập nhật video và nhận diện vết bẩn
+def update_frame():
+    ret, frame = cap.read()  # Đọc khung hình từ camera
+    if ret:
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = objectron.process(rgb_frame)
+
+        if results.detected_objects:
+            for detected_object in results.detected_objects:
+                mp_drawing.draw_landmarks(
+                    frame, detected_object.landmarks_2d, mp_objectron.BOX_CONNECTIONS
+                )
+                # Thêm nhãn vào khung hình
+                cv2.putText(frame, 'Stain Detected', (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
+
+        cv2image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img = Image.fromarray(cv2image)
+        imgtk = ImageTk.PhotoImage(image=img)
+        lbl_video.imgtk = imgtk
+        lbl_video.configure(image=imgtk)
+    root.after(10, update_frame)  # Cập nhật khung hình sau 10ms
+
+# Mở camera
 cap = cv2.VideoCapture(0)
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
-    
-    # Nhận diện sản phẩm trong khung hình
-    product_name = process_and_predict(frame)
-    
-    # Hiển thị tên sản phẩm
-    cv2.putText(frame, f"Product: {product_name}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-    
-    # Hiển thị khung hình
-    cv2.imshow('Product Detection', frame)
-    
-    # Nhấn 'q' để thoát
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+# Khởi tạo Mediapipe Objectron
+objectron = mp_objectron.Objectron(static_image_mode=False, max_num_objects=5, min_detection_confidence=0.5, model_name='Cup')
 
-# Giải phóng tài nguyên
+# Bắt đầu cập nhật video
+update_frame()
+
+# Chạy ứng dụng Tkinter
+root.mainloop()
+
+# Giải phóng camera khi đóng cửa sổ
 cap.release()
-cv2.destroyAllWindows()
+objectron.close()
