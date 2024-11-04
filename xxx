@@ -30,25 +30,24 @@ def update_frame():
         
         # Kiểm tra nếu chuyển động chậm (motion_score thấp)
         if motion_score < MOTION_THRESHOLD:
-            # Nhận diện vết mực
-            # Chuyển đổi sang không gian màu HSV để dễ phát hiện vết mực
+            # Nhận diện tất cả các màu trừ màu trắng
+            # Chuyển đổi sang không gian màu HSV
             hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
             
-            # Thiết lập ngưỡng màu cho vết mực (tùy vào màu vết mực)
-            # Ví dụ, để phát hiện các vết mực đen hoặc tối:
-            lower_ink = np.array([0, 0, 0])       # Màu tối nhất
-            upper_ink = np.array([180, 255, 50])  # Giới hạn màu tối nhẹ
+            # Thiết lập ngưỡng màu cho tất cả các màu khác trừ màu trắng
+            lower_color = np.array([0, 0, 0])         # Màu tối nhất
+            upper_color = np.array([180, 255, 200])   # Giới hạn để tránh màu trắng
             
-            # Tạo mặt nạ chỉ giữ lại các vùng có màu nằm trong khoảng màu vết mực
-            ink_mask = cv2.inRange(hsv_frame, lower_ink, upper_ink)
+            # Tạo mặt nạ chỉ giữ lại các vùng không phải màu trắng
+            color_mask = cv2.inRange(hsv_frame, lower_color, upper_color)
             
-            # Tìm các đường viền của các vùng vết mực
-            contours, _ = cv2.findContours(ink_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # Tìm các đường viền của các vùng có màu khác màu trắng
+            contours, _ = cv2.findContours(color_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             
-            # Vẽ các đường viền và hiển thị kích thước của mỗi vết mực
+            # Vẽ các đường viền và hiển thị kích thước của mỗi vùng màu
             for contour in contours:
                 area = cv2.contourArea(contour)
-                if area > 50:  # Lọc các vết mực có diện tích nhỏ
+                if area > 50:  # Lọc các vùng có diện tích nhỏ
                     x, y, w, h = cv2.boundingRect(contour)
                     cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 2)
                     cv2.putText(frame, f"Size: {int(area)}", (x, y - 10),
@@ -68,7 +67,7 @@ def update_frame():
 
 # Tạo cửa sổ Tkinter
 root = Tk()
-root.title("Nhận diện vết mực trên giấy")
+root.title("Nhận diện tất cả các màu trừ màu trắng")
 
 # Khởi tạo camera
 cap = cv2.VideoCapture(0)  # 0 là chỉ số của camera mặc định
