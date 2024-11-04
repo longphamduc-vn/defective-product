@@ -12,17 +12,17 @@ def update_frame():
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     
     # Làm mờ hình ảnh để giảm nhiễu
-    blurred = cv2.GaussianBlur(gray, (15, 15), 0)
+    blurred = cv2.GaussianBlur(gray, (7, 7), 0)  # Giảm kích thước kernel để xử lý các vết nhỏ
     
     # Áp dụng ngưỡng để phát hiện các vùng khác biệt (vết bẩn)
-    _, threshold = cv2.threshold(blurred, 200, 255, cv2.THRESH_BINARY_INV)
+    _, threshold = cv2.threshold(blurred, 220, 255, cv2.THRESH_BINARY_INV)  # Giảm ngưỡng để nhạy hơn với các vết mờ nhạt
     
     # Tìm các đường viền của các vùng khác biệt
     contours, _ = cv2.findContours(threshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
     # Vẽ các đường viền (nếu có) trên khung hình ban đầu
     for contour in contours:
-        if cv2.contourArea(contour) > 500:  # Điều kiện kích thước để lọc các vết bẩn nhỏ
+        if cv2.contourArea(contour) > 50:  # Giảm diện tích tối thiểu để phát hiện vết bẩn nhỏ hơn
             x, y, w, h = cv2.boundingRect(contour)
             cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 2)
     
@@ -37,7 +37,7 @@ def update_frame():
 
 # Tạo cửa sổ Tkinter
 root = Tk()
-root.title("Kiểm tra vết bẩn trong giấy trắng")
+root.title("Kiểm tra vết bẩn nhỏ trong giấy trắng")
 
 # Khởi tạo camera
 cap = cv2.VideoCapture(0)  # 0 là chỉ số của camera mặc định
