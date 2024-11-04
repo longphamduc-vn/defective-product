@@ -1,0 +1,57 @@
+import cv2
+import numpy as np
+from tkinter import *
+from PIL import Image, ImageTk
+
+# Hàm cập nhật khung hình từ camera
+def update_frame():
+    # Đọc khung hình từ camera
+    _, frame = cap.read()
+    
+    # Chuyển khung hình thành dạng xám để xử lý
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    
+    # Làm mờ hình ảnh để giảm nhiễu
+    blurred = cv2.GaussianBlur(gray, (15, 15), 0)
+    
+    # Áp dụng ngưỡng để phát hiện các vùng khác biệt (vết bẩn)
+    _, threshold = cv2.threshold(blurred, 200, 255, cv2.THRESH_BINARY_INV)
+    
+    # Tìm các đường viền của các vùng khác biệt
+    contours, _ = cv2.findContours(threshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    # Vẽ các đường viền (nếu có) trên khung hình ban đầu
+    for contour in contours:
+        if cv2.contourArea(contour) > 500:  # Điều kiện kích thước để lọc các vết bẩn nhỏ
+            x, y, w, h = cv2.boundingRect(contour)
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 2)
+    
+    # Chuyển khung hình thành định dạng mà Tkinter có thể hiển thị
+    img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    imgtk = ImageTk.PhotoImage(image=img)
+    
+    # Cập nhật hình ảnh trong giao diện Tkinter
+    camera_label.imgtk = imgtk
+    camera_label.configure(image=imgtk)
+    camera_label.after(10, update_frame)
+
+# Tạo cửa sổ Tkinter
+root = Tk()
+root.title("Kiểm tra vết bẩn trong giấy trắng")
+
+# Khởi tạo camera
+cap = cv2.VideoCapture(0)  # 0 là chỉ số của camera mặc định
+
+# Tạo widget để hiển thị khung hình từ camera
+camera_label = Label(root)
+camera_label.pack()
+
+# Bắt đầu cập nhật khung hình
+update_frame()
+
+# Chạy ứng dụng
+root.mainloop()
+
+# Giải phóng tài nguyên camera khi ứng dụng kết thúc
+cap.release()
+cv2.destroyAllWindows()
